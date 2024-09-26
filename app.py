@@ -1,12 +1,9 @@
 from dotenv import load_dotenv
 import chainlit as cl
+from movie_functions import get_now_playing_movies, get_showtimes, buy_ticket, get_reviews
+import json
 
 load_dotenv()
-
-# Note: If switching to LangSmith, uncomment the following, and replace @observe with @traceable
-# from langsmith.wrappers import wrap_openai
-# from langsmith import traceable
-# client = wrap_openai(openai.AsyncClient())
 
 from langfuse.decorators import observe
 from langfuse.openai import AsyncOpenAI
@@ -14,13 +11,57 @@ from langfuse.openai import AsyncOpenAI
 client = AsyncOpenAI()
 
 gen_kwargs = {
-    "model": "gpt-4o",
+    "model": "gpt-4o-mini-2024-07-18",
     "temperature": 0.2,
     "max_tokens": 500
 }
 
 SYSTEM_PROMPT = """\
-You are a pirate.
+You are an intelligent movie assistant with access to The Movie Database (TMDB) and Serp API.
+Your role is to provide users with detailed information about movies, such as now playing movies,
+showtimes, and movie reviews. The users might also request your assistance in buying movie tickets.
+
+Use the following rules when responding:
+1. Use Your Knowledge: If a user asks a general movie-related question that you know the answer to, 
+respond directly using your own knowledge base. Some user example queries:
+- "What's the plot of the movie 'The Dark Knight'?"
+- "Who directed 'Jurassic Park'?"
+- "What are the main actors in 'Titanic'?"
+
+2. Use the TMDB and Serp API Functions: When the user requests up-to-date information about movies
+that you don't have in your knowledge base, or if the data might have changed, call the API functions 
+to fetch the required data. Examples:
+- "Can you show me now playing movies?"
+- "Can you get me the showtimes for 'Despicable Me 4' in '94110'?"
+- "Can you help me purchase a ticket for Despicable Me 4 at AMC Metreon 16 in San Francisco?"
+
+Additional Guidelines:
+1. Be concise but informative in your responses.
+2. Always verify the accuracy of movie details when fetching from the API, and prioritize the latest information.
+3. If the user asks for recommendations or lists, curate results from the API based on genres, trends, and actors.
+4. Avoid making duplicate function calls. If the user asks for the same movie or a list of movies you've already 
+provided, don't call the API function again.
+5. If the API function call returns an fetch error, retry for a maximum of 3 times. If the error persists, use your
+knowledge base to answer the user's question.
+
+If you need to call the API function, please return your response in the following JSON formats:
+1. This is an example for a function that does not require arguments:
+{
+    "function_name": "get_now_playing_movies()",
+    "args": {}
+}
+2. This is an example for a function that requires arguments. If the arguments are not in your knowledge base, please
+clarify with the user.
+{
+    "function_name": "get_showtimes(title, location)",
+    "args": {"title": "Despicable Me 4", "location": "94110"}
+}
+
+These are the available API functions you can call:
+get_now_playing_movies(): returns a list of movies currently in theaters.
+get_showtimes(title, location): given a movie title and a location, returns the showtimes for that movie in that location (zip code).
+buy_ticket(theater, movie, showtime): given a theater, movie, and showtime, allows the user to buy a ticket for that movie at that theater and showtime.
+get_reviews(movie_id): given a movie ID, returns the reviews for that movie.
 """
 
 @observe
@@ -34,6 +75,7 @@ async def generate_response(client, message_history, gen_kwargs):
     response_message = cl.Message(content="")
     await response_message.send()
 
+    # Update here to check the response and call the TMDB function if needed
     stream = await client.chat.completions.create(messages=message_history, stream=True, **gen_kwargs)
     async for part in stream:
         if token := part.choices[0].delta.content or "":
@@ -51,6 +93,29 @@ async def on_message(message: cl.Message):
     
     response_message = await generate_response(client, message_history, gen_kwargs)
 
+    # Check if the response is a function call
+    # Function calls look like this: {"function_name": "get_showtimes", "args": {"title": "Despicable Me 4", "location": "94110"}}
+    # args can be {} if there function expects no arguments
+    try:
+        function_call = json.loads(response_message.content)
+        if "function_name" in function_call and "args" in function_call:
+            function_name = function_call["function_name"]
+            args = function_call["args"]
+            
+            # Call the appropriate function from movie_functions
+            if function_name == "get_now_playing_movies()":
+                # Call the function from movie_functions.py
+                current_movies = get_now_playing_movies()
+
+                # Append the function result to the message history
+                message_history.append({"role": "assistant", "content": current_movies})
+
+                # Generate a new response incorporating the function results
+                response_message = await generate_response(client, message_history, gen_kwargs)            
+    except json.JSONDecodeError:
+        # If it's not a valid JSON, it's not a function call, so we do nothing
+        pass
+    
     message_history.append({"role": "assistant", "content": response_message.content})
     cl.user_session.set("message_history", message_history)
 
