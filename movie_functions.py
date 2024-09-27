@@ -77,7 +77,11 @@ def get_showtimes(title, location):
 
 @observe()
 def buy_ticket(theater, movie, showtime):
-    return f"Ticket purchased for {movie} at {theater} for {showtime}."
+    return f"Prompt user to confirm they want to purchase ticket for {movie} at {theater} for {showtime}."
+
+@observe()
+def confirm_ticket_purchase(theater, movie, showtime):
+    return f"Confirmed ticket purchase for {movie} at {theater} for {showtime}."
 
 @observe()
 def get_reviews(movie_id):

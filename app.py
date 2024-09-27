@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 import chainlit as cl
-from movie_functions import get_now_playing_movies, get_showtimes, buy_ticket, get_reviews
+from movie_functions import get_now_playing_movies, get_showtimes, buy_ticket, confirm_ticket_purchase, get_reviews
 import json
 import re
 
@@ -30,14 +30,20 @@ respond directly using your own knowledge base. Some user example queries:
 - "What are the main actors in 'Titanic'?"
 
 2. Use the TMDB and Serp API Functions: When the user requests up-to-date information about movies
-that you don't have in your knowledge base, or if the data might have changed, call the API functions 
-to fetch the required data. Examples:
+that you don't have in your knowledge base, such as get showtimes or now playing movies, or if the user wants
+to buy a ticket, you MUST generate a call to the API functions to fetch the required data instead of a direct
+response. Example user queries:
 - "Can you show me now playing movies?"
 - "Can you get me the showtimes for 'Despicable Me 4' in '94110'?"
 - "Can you help me purchase a ticket for Despicable Me 4 at AMC Metreon 16 in San Francisco?"
 
-If you need to call the API function, you MUST return your response in the a JSON format that follows this
-convention:
+3. Purchasing tickets: If the user wants to buy a ticket but not yet confirmed they want to buy it, 
+you MUST generate an API call to the buy_ticket function. Once the user confirms the ticket purchase, 
+you MUST generate an API call to the confirm_ticket_purchase function.
+You MUST NOT directly respond to the user's ticket purchase request using your own knowledge.
+
+4. Expected response for calling API functions: If you need to call the API function, you MUST return 
+your response in the a JSON format that follows this convention:
 {
     "function_name": "get_now_playing_movies",
     "args": {"title": "Despicable Me 4", "location": "94110"}
@@ -45,21 +51,24 @@ convention:
 If the arguments are not in your knowledge base, please clarify with the user. You MUST only call one function
 at a time in your response.
 
-3. Combine Responses: Always default to calling the API function if the user asks for up-to-date
-showtimes or movie information. Combine your internal knowledge with the results obtained from the API data to give
-a complete response to the user.
+5. Combine Responses: Always default to calling the API function if the user asks for up-to-date
+showtimes or movie information, or requests to buy a ticket. Combine your internal knowledge with the 
+results obtained from the API data to give a complete response to the user.
 
 Additional Guidelines:
 1. Be concise but informative in your responses.
 2. Always verify the accuracy of movie details when fetching from the API, and prioritize the latest information.
 3. If the user asks for recommendations or lists, curate results from the API based on genres, trends, and actors.
 Returns the top 5 results only, unless the user is asking for more.
+4. AVOID generating duplicate calls to the same API function with the same arguments for more than 3 times. Exception:
+if the original API function call returned an error, you can retry for a max of 3 times.
 
 These are the available API functions you can call:
-get_now_playing_movies(): returns a list of movies currently in theaters.
-get_showtimes(title, location): given a movie title and a location, returns the showtimes for that movie in that location (zip code).
-buy_ticket(theater, movie, showtime): given a theater, movie, and showtime, allows the user to buy a ticket for that movie at that theater and showtime.
-get_reviews(movie_id): given a movie ID, returns the reviews for that movie.
+1. get_now_playing_movies(): returns a list of movies currently in theaters.
+2. get_showtimes(title, location): given a movie title and a location, returns the showtimes for that movie in that location (zip code).
+3. buy_ticket(theater, movie, showtime): given a theater, movie, and showtime, echos back the ticket details and asks the user to confirm the ticket purchase.
+4. confirm_ticket_purchase(theater, movie, showtime): call this when the user confirms that they want to purchase/buy the ticket.
+5. get_reviews(movie_id): given a movie ID, returns the reviews for that movie.
 """
 
 @observe()
@@ -126,6 +135,16 @@ async def on_message(message: cl.Message):
             title = args.get('title', '')
             location = args.get('location', '')
             result = get_showtimes(title=title, location=location)
+        elif function_name == "buy_ticket":
+            theater = args.get('theater', '')
+            movie = args.get('movie', '')
+            showtime = args.get('showtime', '')
+            result = buy_ticket(theater=theater, movie=movie, showtime=showtime)
+        elif function_name == "confirm_ticket_purchase":
+            theater = args.get('theater', '')
+            movie = args.get('movie', '')
+            showtime = args.get('showtime', '')
+            result = confirm_ticket_purchase(theater=theater, movie=movie, showtime=showtime)
         else:
             result = f"Unknown function '{function_name}' cannot be called"
 

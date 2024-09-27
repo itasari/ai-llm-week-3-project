@@ -1,18 +1,17 @@
-# Chainlit Starter App
+# Max Academy Week 3 Project - Function Calling
 
-This project is a starter Chainlit application that demonstrates a simple integration with OpenAI's API. It showcases the following key features:
+This is the repo for Max Academy's [Week 3 project](https://hackmd.io/9GbIUAAxSgqXzYyJDbwzVg?view#Practical-LLM-Bootcamp-for-Devs), 
+where we're exploring function calling in LLMs.
 
-1. **OpenAI Integration**: The app is connected to OpenAI's API, allowing it to leverage state-of-the-art language models for generating responses.
+## Week 3 Project Milestones
 
-2. **Streaming Responses**: Instead of waiting for the entire response to be generated, the app streams the AI's response in real-time, providing a more interactive and engaging user experience.
-
-3. **Chat History**: The application maintains a conversation history, enabling context-aware responses and allowing for more coherent and meaningful interactions.
-
-4. **Environment Variable Management**: Sensitive information like API keys are managed securely using environment variables.
-
-5. **LangSmith Integration**: The app includes LangSmith for tracing and monitoring AI interactions, which can be useful for debugging and optimizing your AI application.
-
-As a convenience, on start of a new chat session, a system prompt is added as the first message in the chat history.
+- [x] Milestone 1: Create Chainlit starter
+- [x] Milestone 2: Calling a function – fetch now playing movies
+- [x] Milestone 3: Calling multiple functions – fetch showtimes
+- [x] Milestone 4: Chaining functions
+- [x] Milestone 5: Calling functions with user confirmation – Buying tickets
+- [] Milestone 6 (optional): Integrating with RAG
+- [] Milestone 7 (optional): Using OpenAI function calling
 
 ## Getting Started
 
