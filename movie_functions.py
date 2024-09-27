@@ -2,7 +2,9 @@ import os
 import requests
 from serpapi import GoogleSearch
 import os
+from langfuse.decorators import observe
 
+@observe()
 def get_now_playing_movies():
     url = "https://api.themoviedb.org/3/movie/now_playing?language=en-US&page=1"
     headers = {
@@ -36,6 +38,7 @@ def get_now_playing_movies():
     return formatted_movies
     # return "There's an error, I cannot return now playing movies"
 
+@observe()
 def get_showtimes(title, location):
     params = {
         "api_key": os.getenv('SERP_API_KEY'),
@@ -72,9 +75,11 @@ def get_showtimes(title, location):
 
     return formatted_showtimes
 
+@observe()
 def buy_ticket(theater, movie, showtime):
     return f"Ticket purchased for {movie} at {theater} for {showtime}."
 
+@observe()
 def get_reviews(movie_id):
     url = f"https://api.themoviedb.org/3/movie/{movie_id}/reviews?language=en-US&page=1"
     headers = {

@@ -18,7 +18,7 @@ gen_kwargs = {
 
 SYSTEM_PROMPT = """\
 You are an intelligent movie assistant with access to The Movie Database (TMDB) and Serp API.
-Your role is to provide users with detailed information about movies, such as now playing movies,
+Your role is to provide users with information about movies, such as now playing movies,
 showtimes, and movie reviews. The users might also request your assistance in buying movie tickets.
 
 Use the following rules when responding:
@@ -35,27 +35,25 @@ to fetch the required data. Examples:
 - "Can you get me the showtimes for 'Despicable Me 4' in '94110'?"
 - "Can you help me purchase a ticket for Despicable Me 4 at AMC Metreon 16 in San Francisco?"
 
+If you need to call the API function, you MUST return your response in the a JSON format that follows this
+convention:
+{
+    "function_name": "get_now_playing_movies",
+    "args": {"title": "Despicable Me 4", "location": "94110"}
+}
+If the arguments are not in your knowledge base, please clarify with the user. Do NOT add any prefix or
+suffix to the above blob.
+
+3. Combine Responses: Combine your internal knowledge with the results obtained from the API data to give
+a complete response to the user.
+
 Additional Guidelines:
 1. Be concise but informative in your responses.
 2. Always verify the accuracy of movie details when fetching from the API, and prioritize the latest information.
 3. If the user asks for recommendations or lists, curate results from the API based on genres, trends, and actors.
-4. Avoid making duplicate function calls. If the user asks for the same movie or a list of movies you've already 
+Returns the top 5 results only, unless the user is asking for more.
+4. Avoid making duplicate function calls. If the user asks for the same information you've already 
 provided, don't call the API function again.
-5. If the API function call returns an fetch error, retry for a maximum of 3 times. If the error persists, use your
-knowledge base to answer the user's question.
-
-If you need to call the API function, please return your response in the following JSON formats:
-1. This is an example for a function that does not require arguments:
-{
-    "function_name": "get_now_playing_movies()",
-    "args": {}
-}
-2. This is an example for a function that requires arguments. If the arguments are not in your knowledge base, please
-clarify with the user.
-{
-    "function_name": "get_showtimes(title, location)",
-    "args": {"title": "Despicable Me 4", "location": "94110"}
-}
 
 These are the available API functions you can call:
 get_now_playing_movies(): returns a list of movies currently in theaters.
@@ -64,13 +62,13 @@ buy_ticket(theater, movie, showtime): given a theater, movie, and showtime, allo
 get_reviews(movie_id): given a movie ID, returns the reviews for that movie.
 """
 
-@observe
+@observe()
 @cl.on_chat_start
 def on_chat_start():    
     message_history = [{"role": "system", "content": SYSTEM_PROMPT}]
     cl.user_session.set("message_history", message_history)
 
-@observe
+@observe()
 async def generate_response(client, message_history, gen_kwargs):
     response_message = cl.Message(content="")
     await response_message.send()
@@ -86,7 +84,7 @@ async def generate_response(client, message_history, gen_kwargs):
     return response_message
 
 @cl.on_message
-@observe
+@observe()
 async def on_message(message: cl.Message):
     message_history = cl.user_session.get("message_history", [])
     message_history.append({"role": "user", "content": message.content})
@@ -99,19 +97,25 @@ async def on_message(message: cl.Message):
     try:
         function_call = json.loads(response_message.content)
         if "function_name" in function_call and "args" in function_call:
+            print("in function_call if block")
             function_name = function_call["function_name"]
             args = function_call["args"]
             
             # Call the appropriate function from movie_functions
-            if function_name == "get_now_playing_movies()":
-                # Call the function from movie_functions.py
-                current_movies = get_now_playing_movies()
+            if function_name == "get_now_playing_movies":
+                result = get_now_playing_movies()
+            elif function_name == "get_showtimes":
+                title = args.get('title', '')
+                location = args.get('location', '')
+                result = get_showtimes(title=title, location=location)
+            else:
+                result = f"Error: Unknown function '{function_name}'"
 
-                # Append the function result to the message history
-                message_history.append({"role": "assistant", "content": current_movies})
+            # Append the function result to the message history
+            message_history.append({"role": "system", "content": result})
 
-                # Generate a new response incorporating the function results
-                response_message = await generate_response(client, message_history, gen_kwargs)            
+            # Generate a new response incorporating the function results
+            response_message = await generate_response(client, message_history, gen_kwargs)            
     except json.JSONDecodeError:
         # If it's not a valid JSON, it's not a function call, so we do nothing
         pass
