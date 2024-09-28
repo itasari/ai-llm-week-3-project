@@ -10,8 +10,8 @@ where we're exploring function calling in LLMs.
 - [x] Milestone 3: Calling multiple functions – fetch showtimes
 - [x] Milestone 4: Chaining functions
 - [x] Milestone 5: Calling functions with user confirmation – Buying tickets
-- [] Milestone 6 (optional): Integrating with RAG
-- [] Milestone 7 (optional): Using OpenAI function calling
+- [ ] Milestone 6 (optional): Integrating with RAG
+- [ ] Milestone 7 (optional): Using OpenAI function calling
 
 ## Getting Started
 
